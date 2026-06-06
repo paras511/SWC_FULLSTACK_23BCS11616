@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>High-Performance List</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 28px;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #aaa;
+    }
+
+    .meta {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: #555;
+    }
+
+    #count {
+      color: #7effa0;
+      font-weight: bold;
+    }
+
+    /* ── List ── */
+    #list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #161616;
+      border: 1px solid #222;
+      border-left: 3px solid #333;
+      transition: border-left-color 0.15s, background 0.15s;
+    }
+
+    .item:hover {
+      background: #1c1c1c;
+      border-left-color: #7effa0;
+    }
+
+    .item.removing {
+      opacity: 0;
+      transform: translateX(12px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .item-title {
+      font-size: 0.82rem;
+      color: #ccc;
+      letter-spacing: 0.02em;
+    }
+
+    .item-id {
+      font-size: 0.68rem;
+      color: #444;
+      margin-left: 8px;
+    }
+
+    .btn-delete {
+      background: none;
+      border: 1px solid #333;
+      color: #555;
+      font-family: inherit;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      padding: 3px 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: border-color 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-delete:hover {
+      border-color: #ff6b6b;
+      color: #ff6b6b;
+    }
+
+    /* ── Footer note ── */
+    .note {
+      margin-top: 28px;
+      font-size: 0.72rem;
+      color: #444;
+      border-top: 1px solid #1e1e1e;
+      padding-top: 16px;
+      line-height: 1.7;
+    }
+
+    .note span {
+      color: #7effa0;
+    }
+
+    /* ── Empty state ── */
+    #empty {
+      display: none;
+      text-align: center;
+      padding: 60px 0;
+      font-size: 0.8rem;
+      color: #444;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Notification Feed</h1>
+    <p class="meta">Showing <span id="count">1000</span> items &mdash; single event listener</p>
+  </header>
+
+  <ul id="list"></ul>
+  <div id="empty">All items cleared</div>
+
+  <p class="note">
+    <span>Event delegation</span> — one listener on <code>#list</code> handles
+    all delete clicks via <code>e.target.closest('[data-id]')</code>.
+    No per-item listeners. Scales to any size.
+  </p>
+</div>
+
+<script>
+  const TOTAL = 1000;
+
+  const categories = [
+    'Order', 'Shipment', 'Payment', 'Review', 'Return',
+    'Offer', 'Alert', 'Update', 'Reminder', 'Message'
+  ];
+
+  // ── Build dataset ──
+  const items = Array.from({ length: TOTAL }, (_, i) => ({
+    id: i + 1,
+    title: `${categories[i % categories.length]} #${String(i + 1).padStart(4, '0')} — ${randomLabel(i)}`
+  }));
+
+  function randomLabel(i) {
+    const labels = [
+      'Your package has been dispatched.',
+      'Payment confirmed. Thank you!',
+      'New review posted on your item.',
+      'Flash sale starts in 2 hours.',
+      'Return request approved.',
+      'Delivery attempted — reschedule?',
+      'Promo code expires tonight.',
+      'Seller replied to your query.',
+      'Item back in stock.',
+      'Your wishlist item is on sale.'
+    ];
+    return labels[i % labels.length];
+  }
+
+  // ── Render all items as one HTML string (fast) ──
+  const listEl   = document.getElementById('list');
+  const countEl  = document.getElementById('count');
+  const emptyEl  = document.getElementById('empty');
+
+  function render() {
+    listEl.innerHTML = items.map(item => `
+      <li class="item" data-id="${item.id}">
+        <span class="item-title">
+          ${item.title}
+          <span class="item-id">#${item.id}</span>
+        </span>
+        <button class="btn-delete" data-id="${item.id}">Delete</button>
+      </li>
+    `).join('');
+    updateCount();
+  }
+
+  function updateCount() {
+    const remaining = listEl.querySelectorAll('.item').length;
+    countEl.textContent = remaining;
+    emptyEl.style.display = remaining === 0 ? 'block' : 'none';
+  }
+
+  // ── Single event listener via delegation ──
+  listEl.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-delete');
+    if (!btn) return;                         // ignore clicks on non-buttons
+
+    const id  = btn.dataset.id;
+    const row = listEl.querySelector(`.item[data-id="${id}"]`);
+    if (!row) return;
+
+    // Animate out, then remove
+    row.classList.add('removing');
+    row.addEventListener('transitionend', () => {
+      row.remove();
+      updateCount();
+    }, { once: true });
+  });
+
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Infinite Scroll · Skeleton Loader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+
+/* ── Reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base ──────────────────────────────────────────────── */
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #EEECEA;
+  color: #111827;
+  min-height: 100vh;
+}
+
+/* ── Top bar ───────────────────────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 54px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+.topbar-brand {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: #111;
+}
+.topbar-brand span { color: #0D9488; }
+.topbar-meta {
+  font-size: 12px;
+  color: #9CA3AF;
+  font-weight: 400;
+}
+
+/* ── Feed ──────────────────────────────────────────────── */
+.feed {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 22px 14px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Card shell ────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.055);
+}
+
+/* ── Loaded card ───────────────────────────────────────── */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 16px 10px;
+}
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+.meta { flex: 1; min-width: 0; }
+.meta-name  { font-size: 14px; font-weight: 600; color: #111; }
+.meta-time  { font-size: 12px; color: #9CA3AF; margin-top: 2px; }
+
+.card-img-wrap {
+  width: 100%;
+  height: 214px;
+  overflow: hidden;
+  background: #F3F4F6;
+}
+.card-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-body { padding: 13px 16px 4px; }
+.card-text  { font-size: 14px; line-height: 1.65; color: #374151; }
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 13px;
+}
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #F3F4F6;
+  border: none;
+  border-radius: 99px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  color: #6B7280;
+  cursor: pointer;
+}
+.action-btn svg { flex-shrink: 0; }
+
+/* Fade-in for newly loaded cards */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card.loaded { animation: fadeUp 0.32s ease forwards; }
+
+/* ── Shimmer ───────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -560px 0; }
+  100% { background-position:  560px 0; }
+}
+
+.skel {
+  background: linear-gradient(
+    90deg,
+    #ECEAE7 25%,
+    #DDD9D5 50%,
+    #ECEAE7 75%
+  );
+  background-size: 560px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Skeleton sub-shapes */
+.skel-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.skel-line {
+  height: 11px;
+  border-radius: 6px;
+}
+.skel-block {
+  width: 100%;
+  height: 214px;
+}
+.skel-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 13px 16px 16px;
+}
+.skel-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+.skel-pill {
+  height: 28px;
+  width: 68px;
+  border-radius: 99px;
+}
+
+/* ── Bottom loader (bouncing dots) ─────────────────────── */
+.loader-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 0 4px;
+}
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: translateY(0);    opacity: 0.5; }
+  40%           { transform: translateY(-7px); opacity: 1;   }
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0D9488;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.dot:nth-child(2) { animation-delay: 0.16s; }
+.dot:nth-child(3) { animation-delay: 0.32s; }
+
+/* ── End message ───────────────────────────────────────── */
+.end-msg {
+  text-align: center;
+  font-size: 13px;
+  color: #9CA3AF;
+  padding: 12px 0 20px;
+}
+
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-brand">feed<span>.</span></div>
+  <div class="topbar-meta" id="meta">Connecting…</div>
+</header>
+
+<main class="feed" id="feed">
+  <div id="sentinel" style="height:1px;"></div>
+  <div class="loader-dots" id="loader">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+</main>
+
+<script>
+const AUTHORS = [
+  { name:"Priya Mehta",     initials:"PM", color:"#7C3AED" },
+  { name:"Jordan Lee",      initials:"JL", color:"#0D9488" },
+  { name:"Alex Rivera",     initials:"AR", color:"#D97706" },
+  { name:"Sam Torres",      initials:"ST", color:"#DC2626" },
+  { name:"Morgan Blake",    initials:"MB", color:"#2563EB" },
+  { name:"Casey Kim",       initials:"CK", color:"#DB2777" },
+  { name:"Drew Patel",      initials:"DP", color:"#059669" },
+  { name:"Quinn Nakamura",  initials:"QN", color:"#4F46E5" },
+];
+
+const TEXTS = [
+  "Just got back from three weeks in Portugal — the light there is unlike anywhere else. Already planning the return trip.",
+  "Finished reading Piranesi last night. That book does something to your brain. Recommend with absolutely zero context.",
+  "Hot take: the best productivity system is the one you'll actually stick to. Mine is a single notebook and a pen.",
+  "Finally tried making sourdough from scratch. Batch 1 was a brick. Batch 3 was perfect. Completely worth it.",
+  "There's a specific kind of quiet that only happens at 5 am. Not eerie — calm. Highly recommend meeting it sometime.",
+  "Redesigned our onboarding flow and cut drop-off by 34%. Small copy changes make a surprisingly large difference.",
+  "Been walking 8,000 steps a day for two months. The change in mental clarity is genuinely noticeable.",
+  "Watched a craftsman restore a 200-year-old clock today. That level of patience is a skill I deeply respect.",
+  "Reminder: comparing your chapter 3 to someone else's chapter 20 is a reliable way to feel unnecessarily bad.",
+  "Made a meal from ingredients I already had instead of ordering delivery. Felt like a small victory.",
+  "The difference between a good meeting and a bad one is almost always whether someone prepared an agenda.",
+  "Started keeping a 'done' list alongside my to-do list. Turns out I get way more done than I thought.",
+];
+
+const IMAGE_IDS = [10,14,20,26,30,37,43,48,53,60,67,73,80,88,95,100,110,120,130,140];
+const TIMES     = ["just now","1m ago","4m ago","9m ago","15m ago","28m ago","42m ago","1h ago","2h ago","3h ago"];
+
+let total   = 0;
+let imgIdx  = 0;
+let busy    = false;
+const BATCH = 4;
+const LIMIT = 48;
+
+const feed     = document.getElementById("feed");
+const sentinel = document.getElementById("sentinel");
+const loader   = document.getElementById("loader");
+const meta     = document.getElementById("meta");
+
+function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+/* ── Skeleton card ──────────────────────────────────────── */
+function skeletonCard() {
+  const d = document.createElement("div");
+  d.className = "card";
+  d.setAttribute("aria-hidden","true");
+  d.innerHTML = `
+    <div class="card-header">
+      <div class="skel skel-circle"></div>
+      <div class="meta" style="display:flex;flex-direction:column;gap:8px;">
+        <div class="skel skel-line" style="width:120px;"></div>
+        <div class="skel skel-line" style="width:76px;height:9px;"></div>
+      </div>
+    </div>
+    <div class="skel skel-block"></div>
+    <div class="skel-lines">
+      <div class="skel skel-line" style="width:100%;"></div>
+      <div class="skel skel-line" style="width:87%;"></div>
+      <div class="skel skel-line" style="width:68%;"></div>
+    </div>
+    <div class="skel-actions">
+      <div class="skel skel-pill"></div>
+      <div class="skel skel-pill"></div>
+      <div class="skel skel-pill"></div>
+    </div>`;
+  return d;
+}
+
+/* ── Loaded card ────────────────────────────────────────── */
+function loadedCard(data) {
+  const d = document.createElement("div");
+  d.className = "card loaded";
+  d.innerHTML = `
+    <div class="card-header">
+      <div class="avatar" style="background:${data.author.color}">${data.author.initials}</div>
+      <div class="meta">
+        <div class="meta-name">${data.author.name}</div>
+        <div class="meta-time">${data.time}</div>
+      </div>
+    </div>
+    <div class="card-img-wrap">
+      <img src="https://picsum.photos/id/${data.imgId}/560/214" alt="post image" loading="lazy" />
+    </div>
+    <div class="card-body">
+      <p class="card-text">${data.text}</p>
+    </div>
+    <div class="card-actions">
+      <button class="action-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        ${data.likes}
+      </button>
+      <button class="action-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        ${data.comments}
+      </button>
+      <button class="action-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        Share
+      </button>
+    </div>`;
+  return d;
+}
+
+/* ── Load batch ─────────────────────────────────────────── */
+function loadBatch() {
+  if (busy || total >= LIMIT) return;
+  busy = true;
+  meta.textContent = "Loading…";
+
+  const skels = Array.from({ length: BATCH }, () => {
+    const s = skeletonCard();
+    feed.insertBefore(s, sentinel);
+    return s;
+  });
+
+  setTimeout(() => {
+    skels.forEach(skel => {
+      const data = {
+        author:   pick(AUTHORS),
+        text:     pick(TEXTS),
+        imgId:    IMAGE_IDS[imgIdx++ % IMAGE_IDS.length],
+        time:     pick(TIMES),
+        likes:    Math.floor(Math.random() * 280) + 12,
+        comments: Math.floor(Math.random() * 60)  + 1,
+      };
+      feed.replaceChild(loadedCard(data), skel);
+      total++;
+    });
+
+    meta.textContent = `${total} posts`;
+
+    if (total >= LIMIT) {
+      loader.remove();
+      const end = document.createElement("p");
+      end.className = "end-msg";
+      end.textContent = "You've reached the end.";
+      feed.appendChild(end);
+      obs.disconnect();
+    }
+
+    busy = false;
+  }, 1700);
+}
+
+/* ── IntersectionObserver ───────────────────────────────── */
+const obs = new IntersectionObserver(([e]) => {
+  if (e.isIntersecting) loadBatch();
+}, { rootMargin: "220px" });
+
+obs.observe(sentinel);
+</script>
+</body>
+</html>
